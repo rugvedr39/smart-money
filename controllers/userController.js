@@ -97,7 +97,7 @@ exports.getUserDashboard = async (req, res) => {
     }
 
     // Count total directs
-    const totalDirects = await User.countDocuments({ sponsorId: user.username });
+    const totalDirects = await User.countDocuments({ sponsorId: user.username,level : 1 });
 
     // Respond with user data and total directs
     res.status(200).json({
