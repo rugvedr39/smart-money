@@ -12,5 +12,8 @@ router.get('/pending', paymentController.getPendingPayments);
 router.put('/approve/:id/:date', paymentController.approvePayment);
 router.get('/getTransactions', paymentController.getTransactions);
 router.post('/addwithdrawRequest', paymentController.withdrawRequest);
+router.get('/withdrawals', paymentController.getWithdrawals);
+router.post('/markAsPaid', paymentController.markAsPaid);
+
 
 module.exports = router;

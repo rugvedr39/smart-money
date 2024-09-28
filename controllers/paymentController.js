@@ -3,6 +3,7 @@ const Payment = require('../models/paymentModel');
 const User = require('../models/userModel');
 const Transaction = require('../models/transactionModel');
 const TeamHierarchy = require('../models/teamHierarchyModel'); // Import the TeamHierarchy model
+const Admin = require('../models/adminModel');
 
 exports.submitUTR = async (req, res) => {
     try {
@@ -74,8 +75,35 @@ exports.getPendingPayments = async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
     let currentUser = user;
-    const commissionLevels = [15, 8, 6, 4, 2, 1, 1, 1, 1, 1];
-    const totalAmount = 3000;
+    const adminDetails = await Admin.findOne({});
+    const totalAmount = adminDetails.productPrice;
+    const commissionLevels = adminDetails.commissionLevels; // Fetch the commission levels from the Admin schema
+    const directIncomePercentageArray = adminDetails.directIncomePercentage;
+    const directSponsorId = currentUser.sponsorId;
+    if (directSponsorId) {
+      const directSponsor = await User.findOne({ username: directSponsorId });
+      if (directSponsor) {
+        const sponsorsCount = await User.countDocuments({ sponsorId: directSponsorId });
+        if (sponsorsCount > 1) {
+          const directIncomePercentage = sponsorsCount >= directIncomePercentageArray.length
+            ? directIncomePercentageArray[directIncomePercentageArray.length - 1]
+            : directIncomePercentageArray[sponsorsCount];
+
+          // Calculate and distribute Direct Income to the Level 1 sponsor
+          const directIncome = (totalAmount * directIncomePercentage) / 100;
+          directSponsor.wallet += directIncome;
+
+          const directIncomeTransaction = new Transaction({
+            userId: directSponsor._id,
+            type: 'Direct Income',
+            amount: directIncome,
+          });
+
+          await directIncomeTransaction.save();
+          await directSponsor.save();
+        }
+      }
+    }
     for (let level = 0; level < commissionLevels.length; level++) {
       const sponsorId = currentUser.sponsorId;
       if (!sponsorId) {
@@ -160,5 +188,55 @@ exports.withdrawRequest = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+// Controller for getting all withdrawal transactions with pagination
+exports.getWithdrawals = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query; // Get pagination parameters from the query string
+    const skip = (page - 1) * limit;
+
+    // Count total number of withdrawals
+    const totalWithdrawals = await Transaction.countDocuments({ type: 'Withdrawal' });
+    
+    // Retrieve withdrawals with pagination
+    const withdrawals = await Transaction.find({ type: 'Withdrawal' })
+      .populate('userId', 'name username mobileNumber') // Populate the userId field with name, username, and phone
+      .sort({ createdAt: -1 }) // Sort by createdAt in descending order
+      .skip(skip)
+      .limit(Number(limit));
+
+    // Respond with pagination details and withdrawal data
+    res.status(200).json({
+      totalWithdrawals,
+      totalPages: Math.ceil(totalWithdrawals / limit),
+      currentPage: Number(page),
+      withdrawals,
+    });
+  } catch (error) {
+    console.error("Error fetching withdrawal transactions:", error);
+    res.status(500).json({ message: 'Error fetching withdrawal transactions.', error });
+  }
+};
+
+
+exports.markAsPaid = async (req, res) => {
+  const { transactionId } = req.body;
+
+  try {
+    const transaction = await Transaction.findById(transactionId);
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found.' });
+    }
+    transaction.status = true; // Set status to true
+    await user.save();
+    await transaction.save();
+
+    res.status(200).json({ status:200,message: 'Transaction marked as paid successfully.', transaction });
+  } catch (error) {
+    console.error('Error marking transaction as paid:', error);
+    res.status(500).json({ message: 'Error marking transaction as paid.', error });
   }
 };

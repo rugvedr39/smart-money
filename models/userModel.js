@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
   pan: { type: String, required: true, unique: true },
   mobileNumber: { type: Number, required: true },  // Removed unique constraint
   email: { type: String, required: true, unique: true },
-  sponsorId: { type: String, required: true },
+  sponsorId: { type: String},
   password: { type: String, required: true },
   username: { type: String, unique: true },
   wallet: { type: Number, default: 0 },

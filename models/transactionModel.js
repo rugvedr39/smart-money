@@ -9,7 +9,7 @@ const transactionSchema = new mongoose.Schema({
   },
   type: { 
     type: String, 
-    enum: ['Withdrawal', 'Product Price', 'Level Income'], 
+    enum: ['Withdrawal', 'Product Price', 'Level Income','Direct Income'], 
     required: true
   },
   amount: {

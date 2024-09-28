@@ -2,6 +2,7 @@ const { default: mongoose } = require('mongoose');
 const User = require('../models/userModel');
 const TeamHierarchy = require('../models/teamHierarchyModel'); // Import the TeamHierarchy model
 const Transaction = require('../models/transactionModel');
+const Payment = require('../models/paymentModel');
 
 
 // Register User
@@ -118,18 +119,14 @@ exports.getUserDashboard = async (req, res) => {
 exports.loginUser = async (req, res) => {
   try {
     const { username, password } = req.body;
-    
-    // Find the user by email
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
-
     if (password != user.password) {
      return res.status(400).json({ message: 'Invalid credentials.' });
     }
-    // Send the user ID
-    res.status(200).json({ userId: user._id });
+    res.status(200).json({ userId: user });
   } catch (error) {
     console.error('Error during login:', error);
     res.status(500).json({ message: 'Login failed. Please try again later.', error: error.message });
@@ -165,3 +162,33 @@ exports.getTeamHierarchy = async (req, res) => {
   }
 };
 
+exports.getUserbyUsername = async (req, res) =>  {
+  try {
+    const sponserId = req.params.sponserId
+    const user = await User.findOne({username: sponserId})
+    if (user) {
+      return res.status(200).json({status:200,data:user.name})
+    }else{
+      return res.status(200).json({status:400,message:"user not found"})
+    }
+  }
+  catch (error) {
+    res.status(500).json({ message: 'Error fetching user', error });
+  }
+}
+
+exports.getUserbyIdforIsApproved = async (req, res) =>  {
+  try {
+    const id = req.params.id
+    const user = await User.findOne({_id: new Object(id)})
+    const payments = await Payment.findOne({userId:new Object(id)})
+    if (user) {
+      return res.status(200).json({status:200,data:user.isApproved,payments:payments});
+    }else{
+      return res.status(200).json({status:400,message:"user not found"})
+    }
+  }
+  catch (error) {
+    res.status(500).json({ message: 'Error fetching user', error });
+  }
+}
