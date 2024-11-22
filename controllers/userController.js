@@ -192,3 +192,30 @@ exports.getUserbyIdforIsApproved = async (req, res) =>  {
     res.status(500).json({ message: 'Error fetching user', error });
   }
 }
+
+
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.params.id; // User ID from request parameters
+    const updateData = req.body;  // Data to update from the request body
+
+    // Find the user by ID and update their profile
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },  // Fields to update
+      { new: true, runValidators: true } // Return updated user and validate fields
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      message: 'User profile updated successfully',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    res.status(500).json({ message: 'Error updating user profile', error });
+  }
+};
