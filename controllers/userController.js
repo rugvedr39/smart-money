@@ -31,10 +31,10 @@ exports.registerUser = async (req, res) => {
   try {
     const { name, address, upi, bankDetails, pan, mobileNumber, email, sponsorId, password ,date } = req.body;
     // Validate and get sponsor user
-    const sponsorUser = await User.findOne({ username: sponsorId });
-    if (!sponsorUser) {
-      return res.status(400).json({ message: 'Invalid sponsorId. Sponsor not found.' });
-    }
+    // const sponsorUser = await User.findOne({ username: sponsorId });
+    // if (!sponsorUser) {
+    //   return res.status(400).json({ message: 'Invalid sponsorId. Sponsor not found.' });
+    // }
     const panUser = await User.findOne({ pan: pan });
     if (panUser) {
       return res.status(404).json({ message: 'This Pan is allready registred' });
