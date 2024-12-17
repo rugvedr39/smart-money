@@ -5,6 +5,7 @@ const Transaction = require('../models/transactionModel');
 const TeamHierarchy = require('../models/teamHierarchyModel'); // Import the TeamHierarchy model
 const Admin = require('../models/adminModel');
 const Product = require('../models/product');
+const AutoPool = require('../models/autopoolModal');
 
 exports.submitUTR = async (req, res) => {
     try {
@@ -81,6 +82,23 @@ exports.approvePayment = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
+
+    const sponsorDirectReferrals = await User.countDocuments({ sponsorId: user.sponsorId });
+    if (sponsorDirectReferrals === 3) {
+      const existingPoolUser = await AutoPool.findOne({  userId:user.sponsorId  });
+      if (existingPoolUser) {
+        console.log("User already in Auto Pool");
+        return;
+      }
+  
+      // Add user to auto pool
+      const newAutoPoolEntry = new AutoPool({ userId:user.sponsorId , teamCount: 0 });
+      await newAutoPoolEntry.save();
+      await propagateTeamCount(user.sponsorId);
+
+  }
+
+
     user.isApproved = true;
     await user.save();
 
@@ -179,6 +197,9 @@ for (let level = 1; level <= 10; level++) {
   // Move to the next sponsor in the hierarchy
   currentUser = sponsor;
 }
+
+
+
 
     res.status(200).json({ message: 'Payment approved and income distributed.' });
   } catch (error) {
@@ -345,3 +366,74 @@ exports.getTeamHierarchy = async (req, res) => {
     res.status(500).json({ error: 'Something went wrong.' });
   }
 };
+
+async function propagateTeamCount(userId) {
+  try {
+    // Fetch the user's sponsorId from the User model
+    const user = await User.findById(userId);
+    if (!user || !user.sponsorId) return; // Stop if no sponsorId
+
+    const sponsorId = user.sponsorId;
+
+    // Check if the sponsor is in the auto pool
+    const sponsorPoolEntry = await AutoPool.findOne({ userId: sponsorId });
+    if (!sponsorPoolEntry) return; // Stop if sponsor is not in auto pool
+
+    // Increment sponsor's team count
+    sponsorPoolEntry.teamCount += 1;
+    await sponsorPoolEntry.save();
+    console.log(`Sponsor ${sponsorId} team count incremented to ${sponsorPoolEntry.teamCount}`);
+
+    // Determine rewards based on team count
+    const rewards = {
+      3: { magicIncome: 2100, magicTopup: 2100 },
+      6: { magicIncome: 12600, magicTopup: 10800 },
+      9: { magicIncome: 97200, magicTopup: 83315 },
+      12: { magicIncome: 999780, magicTopup: 0 } // No Magic Topup on 12
+    };
+
+    const reward = rewards[sponsorPoolEntry.teamCount];
+
+    if (reward) {
+      // Fetch sponsor details
+      const sponsor = await User.findById(sponsorId);
+
+      if (!sponsor) return;
+
+      // Handle Magic Income transaction
+      if (reward.magicIncome > 0) {
+        const magicIncomeTransaction = new Transaction({
+          userId: sponsorId,
+          type: 'Magic Income',
+          amount: reward.magicIncome,
+        });
+        await magicIncomeTransaction.save();
+
+        sponsor.wallet += reward.magicIncome;
+        console.log(`Magic Income of ${reward.magicIncome} added to sponsor ${sponsorId}`);
+      }
+
+      // Handle Magic Topup transaction
+      if (reward.magicTopup > 0) {
+        const magicTopupTransaction = new Transaction({
+          userId: sponsorId,
+          type: 'Magic Topup',
+          amount: reward.magicTopup,
+        });
+        await magicTopupTransaction.save();
+
+        sponsor.wallet -= reward.magicTopup;
+        console.log(`Magic Topup of ${reward.magicTopup} added to sponsor ${sponsorId}`);
+      }
+
+      await sponsor.save();
+    }
+
+
+    // Recursively propagate to the sponsor's sponsor
+    await propagateTeamCount(sponsorId);
+
+  } catch (error) {
+    console.error("Error propagating team count:", error);
+  }
+}
