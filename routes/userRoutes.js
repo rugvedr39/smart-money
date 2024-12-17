@@ -1,13 +1,19 @@
 const express = require('express');
-const { registerUser,getUserDashboard ,loginUser,getTeamHierarchy,getUserbyUsername,getUserbyIdforIsApproved,updateUserProfile} = require('../controllers/userController');
 const router = express.Router();
+const userController = require('../controllers/Usercontroller');
 
-router.post('/register', registerUser);
-router.get('/user/:userId', getUserDashboard);
-router.post('/login', loginUser);
-router.get('/team/:userId', getTeamHierarchy);
-router.get('/getUserbyUsername/:sponserId', getUserbyUsername);
-router.get('/getUserbyIdforIsApproved/:id', getUserbyIdforIsApproved);
-router.put('/users/:id', updateUserProfile);
+// Routes for handling user CRUD operations
+router.get('/', userController.getUsers);
+router.post('/create', userController.createUser);
+router.put('/update', userController.updateUser);
+router.get('/:id', userController.getUser);
+router.post('/login', userController.login);
+router.get('/getUserbyIdforIsApproved/:id', userController.getUserbyIdforIsApproved);
+
+router.get('/dashboard/:userId', userController.getDashboardData);
+router.get('/transactions/:userId', userController.getTransactions);
+router.get('/teamhierarchy', userController.getTeamHierarchy);
+
+
 
 module.exports = router;

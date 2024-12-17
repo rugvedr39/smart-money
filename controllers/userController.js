@@ -1,56 +1,129 @@
-const { default: mongoose } = require('mongoose');
-const User = require('../models/userModel');
-const TeamHierarchy = require('../models/teamHierarchyModel'); // Import the TeamHierarchy model
 const Transaction = require('../models/transactionModel');
+const User = require('../models/user');
+const Product = require('../models/product');
 const Payment = require('../models/paymentModel');
+const Admin = require('../models/adminModel');
+const TeamHierarchy = require('../models/teamHierarchyModel');
+const { default: mongoose } = require('mongoose');
 
 
-// Register User
 
-const generateUniqueUsername = async () => {
-  let username;
-  let isUnique = false;
+// Get all users (optional, for admin purposes)
+exports.getUsers = async (req, res) => {
+  try {
+    // Destructure query params for pagination, sorting, and filtering
+    const {
+      page = 1, // Default page is 1
+      limit = 10, // Default limit is 10 users per page
+      sortBy = 'createdAt', // Default sorting column
+      order = 'desc', // Default order is descending
+      search = '', // Optional search query (e.g., username or email)
+    } = req.query;
 
-  while (!isUnique) {
-    // Generate a 6-digit username
-    username = Math.floor(100000 + Math.random() * 900000).toString();
+    // Parse page and limit to integers
+    const pageNumber = parseInt(page, 10);
+    const pageSize = parseInt(limit, 10);
 
-    // Check if the username already exists
-    const existingUser = await User.findOne({ username });
+    // Create a filter for search (e.g., search by name or email)
+    const searchQuery = search
+    ? {
+        $or: [
+          { name: { $regex: search, $options: 'i' } }, // Case-insensitive name search
+          { email: { $regex: search, $options: 'i' } }, // Case-insensitive email search
+          { username: { $regex: search, $options: 'i' } }, // Case-insensitive username search
+          isNaN(Number(search))
+            ? null
+            : { mobileNumber: Number(search) }, // Exact match for mobile number
+        ].filter(Boolean), // Remove null if search is not a number
+      }
+    : {};
 
-    if (!existingUser) {
-      isUnique = true;
-    }
+    // Get total count of users for pagination metadata
+    const totalUsers = await User.countDocuments(searchQuery);
+
+    // Fetch users with pagination, sorting, and filtering
+    const users = await User.find(searchQuery)
+      .sort({ [sortBy]: order === 'desc' ? -1 : 1 }) // Sorting
+      .skip((pageNumber - 1) * pageSize) // Skip users for previous pages
+      .limit(pageSize); // Limit the number of users returned
+
+    // Send paginated response
+    res.status(200).json({
+      success: true,
+      message: 'Users fetched successfully',
+      data: users,
+      pagination: {
+        totalUsers,
+        currentPage: pageNumber,
+        totalPages: Math.ceil(totalUsers / pageSize),
+        pageSize,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users',
+      error: error.message,
+    });
   }
-
-  return username;
 };
 
 
-exports.registerUser = async (req, res) => {
-  try {
-    const { name, address, upi, bankDetails, pan, mobileNumber, email, sponsorId, password ,date } = req.body;
-    // Validate and get sponsor user
+
+
+
+
+const generateUniqueUsername = async () => {
+    let username;
+    let isUnique = false;
+    while (!isUnique) {
+      // Generate a 6-digit username
+      username = Math.floor(100000 + Math.random() * 900000).toString();
+      // Check if the username already exists
+      const existingUser = await User.findOne({ username });
+      if (!existingUser) {
+        isUnique = true;
+      }
+    }
+    return username;
+  };
+
+// Create a new user
+exports.createUser = async (req, res) => {
+  const { name, address, upi, bankDetails, pan, mobileNumber, email, sponsorId, password } = req.body;
+
+  const existingUser = await User.findOne({ $or: [ 
+    { email },
+    { pan },
+    { mobileNumber },
+    { upi }
+  ] });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email or Username or mobile Number or upi already exists' });
+    }
+
     const sponsorUser = await User.findOne({ username: sponsorId });
     if (!sponsorUser) {
       return res.status(400).json({ message: 'Invalid sponsorId. Sponsor not found.' });
     }
-    const panUser = await User.findOne({ pan: pan });
-    if (panUser) {
-      return res.status(404).json({ message: 'This Pan is allready registred' });
-    }
-    const emailUser = await User.findOne({ email: email });
-    if (emailUser) {
-      return res.status(404).json({ message: 'This Email is allready registred' });
-    }
     // Generate unique username for new user
     const username = await generateUniqueUsername(); 
 
-    // Create and save new user
-    const newUser = new User({ name, address, upi, bankDetails, pan, mobileNumber, email, sponsorId, password, username });
+  try {
+    const newUser = new User({
+      name,
+      address,
+      upi,
+      bankDetails,
+      pan,
+      mobileNumber,
+      email,
+      sponsorId,
+      password,
+      username
+    });
     await newUser.save();
 
-    // Update TeamHierarchy for sponsor
     let currentSponsor = sponsorUser;
     let currentLevel = 1;
 
@@ -60,162 +133,252 @@ exports.registerUser = async (req, res) => {
         sponsorId: currentSponsor._id,
         level: currentLevel
       });
-
-      // Move up the chain, find the next sponsor
       currentSponsor = await User.findOne({ username: currentSponsor.sponsorId });
       currentLevel++;
     }
+
+    const product = await Product.find();
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    const amount = await Admin.find()
+    const gstAmount = (amount[0].productPrice * amount[0].gst) / 100;
+    const paymonut = amount[0].productPrice + amount[0].deliveryCharges + gstAmount;
+    const roundedPaymonut = Math.round(paymonut);
+
+
+    const date = new Date();
     const transaction = new Transaction({
-      userId: newUser._id,
-      type: 'Product Price',
-      amount: 3000,
-      createdAt:date
-    });
-    transaction.save();
-    res.status(201).json({ message: 'User registered successfully', user: newUser });
+        userId: newUser._id,
+        type: 'Product Price',
+        amount:roundedPaymonut,
+        createdAt:date
+      });
+      transaction.save();
+    res.status(201).json({ message: 'User created successfully', user: newUser });
   } catch (error) {
+    res.status(500).json({ message: 'Failed to create user', error });
     console.log(error);
-    
-    if (error.code && error.code === 11000) {
-      return res.status(400).json({ message: 'Duplicate key error. Please check your inputs.' });
-    }
-    res.status(500).json({ message: 'Registration failed', error: error.message });
   }
 };
 
+// Update user data
+exports.updateUser = async (req, res) => {
+  const { userId, name, address, upi, bankDetails, pan, mobileNumber, email, sponsorId, password, username } = req.body;
 
-
-// Get User Dashboard Data
-exports.getUserDashboard = async (req, res) => {
   try {
-    const userId = req.params.userId;
-    if (!userId) {
-      return res.status(401).json({ message: 'User not authenticated.' });
-    }
-    const user = await User.findById(userId).select('username wallet sponsorId name mobileNumber');
+    const user = await User.findByIdAndUpdate(userId, {
+      name,
+      address,
+      upi,
+      bankDetails,
+      pan,
+      mobileNumber,
+      email,
+      sponsorId,
+      password,
+      username
+    }, { new: true });
+
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    // Count total directs
-    const totalDirects = await User.countDocuments({ sponsorId: user.username,level : 1 });
-
-    // Respond with user data and total directs
-    res.status(200).json({
-      user: {
-        username: user.username,
-        wallet: user.wallet,
-        totalDirects: totalDirects,
-        name: user.name,
-        mobileNumber: user.mobileNumber
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching user dashboard data.', error });
-  }
-};
-
-
-exports.loginUser = async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-    if (password != user.password) {
-     return res.status(400).json({ message: 'Invalid credentials.' });
-    }
-    res.status(200).json({ userId: user });
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({ message: 'Login failed. Please try again later.', error: error.message });
-  }
-};
-
-
-exports.getTeamHierarchy = async (req, res) => {
-  try {
-    const userId = req.params.userId;  // Starting with the current user
-    const page = parseInt(req.query.page) || 1;  // Get page from query parameters
-    const limit = parseInt(req.query.limit) || 5;  // Set limit (items per page)
-    const currentLevel = parseInt(req.query.level) || 1;  // Get level from query parameters
-
-    // Find team members where sponsorId matches the current user's userId
-    const teamMembers = await TeamHierarchy.find({ sponsorId: userId, level: currentLevel })
-    .populate('userId', 'name email username isApproved') // Populate user details for the team members
-    .populate('sponsorId', 'username') // Populate sponsor details if needed
-    .limit(limit)
-    .skip((page - 1) * limit);  // Pagination logic
-
-    const totalItems = await TeamHierarchy.countDocuments({ sponsorId: userId, level: currentLevel });
-
-    // Send the paginated team hierarchy data
-    res.status(200).json({
-      team: teamMembers,
-      totalItems,
-      currentPage: page,
-      totalPages: Math.ceil(totalItems / limit)
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching team hierarchy.', error });
-  }
-};
-
-exports.getUserbyUsername = async (req, res) =>  {
-  try {
-    const sponserId = req.params.sponserId
-    const user = await User.findOne({username: sponserId})
-    if (user) {
-      return res.status(200).json({status:200,data:user.name})
-    }else{
-      return res.status(200).json({status:400,message:"user not found"})
-    }
-  }
-  catch (error) {
-    res.status(500).json({ message: 'Error fetching user', error });
-  }
-}
-
-exports.getUserbyIdforIsApproved = async (req, res) =>  {
-  try {
-    const id = req.params.id
-    const user = await User.findOne({_id: new Object(id)})
-    const payments = await Payment.findOne({userId:new Object(id)})
-    if (user) {
-      return res.status(200).json({status:200,data:user.isApproved,payments:payments});
-    }else{
-      return res.status(200).json({status:400,message:"user not found"})
-    }
-  }
-  catch (error) {
-    res.status(500).json({ message: 'Error fetching user', error });
-  }
-}
-
-
-exports.updateUserProfile = async (req, res) => {
-  try {
-    const userId = req.params.id; // User ID from request parameters
-    const updateData = req.body;  // Data to update from the request body
-
-    // Find the user by ID and update their profile
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $set: updateData },  // Fields to update
-      { new: true, runValidators: true } // Return updated user and validate fields
-    );
-
-    if (!updatedUser) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    res.status(200).json({ message: 'User updated successfully', user });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update user', error });
+  }
+};
+
+// Get a specific user (optional)
+exports.getUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch user', error });
+  }
+
+}
+
+
+
+exports.login = async (req, res) => {
+    const { username, password } = req.body;
+  
+    try {
+      const user = await User.findOne({ $or: [{ username }, { email: username }] });
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid username or email' });
+      }
+      if (password!=user.password) {
+        return res.status(400).json({ message: 'Invalid password' });
+      }
+      res.status(200).json({ userId: user });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error });
+    }
+  };
+
+
+  exports.getUserbyIdforIsApproved = async (req, res) =>  {
+    try {
+      const id = req.params.id
+      const user = await User.findOne({_id: new Object(id)})
+      const payments = await Payment.findOne({userId:new Object(id)})
+
+      const amount = await Admin.find()
+      const gstAmount = (amount[0].productPrice * amount[0].gst) / 100;
+      const paymonut = amount[0].productPrice + amount[0].deliveryCharges + gstAmount;
+      const roundedPaymonut = Math.round(paymonut);
+
+      if (user) {
+        return res.status(200).json({status:200,data:user.isApproved,payments:payments,amount:roundedPaymonut});
+      }else{
+        return res.status(200).json({status:400,message:"user not found"})
+      }
+    }
+    catch (error) {
+      res.status(500).json({ message: 'Error fetching user', error });
+    }
+  }
+
+
+
+
+  // dashboard
+
+  exports.getDashboardData = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      const walletBalance = user.wallet;
+      const incomeData = await Transaction.aggregate([
+        { 
+          $match: { 
+            userId: new mongoose.Types.ObjectId(userId), 
+            type: { $in: ['Level Income', 'Direct Income'] } 
+          } 
+        },
+        { 
+          $group: { 
+            _id: '$type', 
+            total: { $sum: '$amount' } 
+          } 
+        }
+      ]);
+      const incomeMap = incomeData.reduce((acc, cur) => {
+        acc[cur._id] = cur.total;
+        return acc;
+      }, {});
+      const directSponsorCount = await TeamHierarchy.countDocuments({ sponsorId: userId });
+      const teamSize = await TeamHierarchy.countDocuments({ sponsorId: userId });
+      const directIncome = incomeMap['Direct Income'] || 0;
+      const levelIncome = incomeMap['Level Income'] || 0;
+      const totalIncome = directIncome + levelIncome;
+      const recentTransactions = await Transaction.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('type amount status createdAt'); // Fetch only specific fields
+      const pendingWithdrawals = await Transaction.countDocuments({ userId, type: 'Withdrawal', status: false });
+      res.status(200).json({
+        walletBalance,
+        totalIncome,
+        directIncome,
+        levelIncome,
+        pendingWithdrawals,
+        user,
+        directSponsors: directSponsorCount,
+        teamSize,
+        recentTransactions
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      res.status(500).json({ message: 'Error fetching dashboard data.', error: error.message });
+    }
+  };
+
+
+  exports.getTransactions = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { page = 1, limit = 10 } = req.query; // Default values for pagination
+      const skip = (page - 1) * limit;
+  
+      // Fetch transactions with pagination
+      const transactions = await Transaction.find({ userId })
+        .sort({ createdAt: -1 }) // Sort by latest first
+        .skip(skip)
+        .limit(Number(limit));
+  
+      // Total transaction count
+      const totalTransactions = await Transaction.countDocuments({ userId });
+  
+      res.status(200).json({
+        transactions,
+        totalTransactions,
+        currentPage: Number(page),
+        totalPages: Math.ceil(totalTransactions / limit),
+      });
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      res.status(500).json({ message: 'Error fetching transactions.', error: error.message });
+    }
+  };
+
+exports.getTeamHierarchy = async (req, res) => {
+  try {
+    const { userId, level = 1, page = 1, limit = 10 } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is missing in query parameters' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const levelNum = parseInt(level, 10);
+
+    if (isNaN(pageNum) || pageNum <= 0) {
+      return res.status(400).json({ error: 'Invalid page number' });
+    }
+
+    if (isNaN(limitNum) || limitNum <= 0) {
+      return res.status(400).json({ error: 'Invalid limit value' });
+    }
+
+    if (isNaN(levelNum) || levelNum <= 0 || levelNum > 10) {
+      return res.status(400).json({ error: 'Level must be between 1 and 10.' });
+    }
+
+    const skip = (pageNum - 1) * limitNum;
+    const objectId = new mongoose.Types.ObjectId(userId);
+
+    // Fetch team data
+    const team = await TeamHierarchy.find({ sponsorId: objectId, level: levelNum })
+      .skip(skip)
+      .limit(limitNum)
+      .populate('userId', 'name email mobileNumber wallet') // Populate user details
+      .exec();
+
+    const totalCount = await TeamHierarchy.countDocuments({ sponsorId: objectId, level: levelNum });
+
     res.status(200).json({
-      message: 'User profile updated successfully',
-      user: updatedUser
+      data: team,
+      currentPage: pageNum,
+      totalPages: Math.ceil(totalCount / limitNum),
+      totalCount,
     });
   } catch (error) {
-    console.error("Error updating user profile:", error);
-    res.status(500).json({ message: 'Error updating user profile', error });
+    console.error(error);
+    res.status(500).json({ error: 'Something went wrong.' });
   }
 };

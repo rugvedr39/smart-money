@@ -1,10 +1,6 @@
 const mongoose = require('mongoose');
 
 const adminSchema = new mongoose.Schema({
-  productPrice: {
-    type: Number,
-    required: true,
-  },
   gst: {
     type: Number,
     required: true,
@@ -21,14 +17,25 @@ const adminSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  commissionLevels: {
-    type: [Number], // An array of numbers for commission levels
-    default: [15, 8, 6, 4, 2, 1, 1, 1, 1, 1], // Default levels if not provided
-  },
-  directIncomePercentage: {
-    type: [Number], // Array to store percentages based on the number of sponsors
-    default: [0, 10, 12, 12, 14, 14, 16, 16, 18, 18, 20], // Example values based on the sponsor count
-  },
+  productPrice: { type: Number, required: true },
+  directIncomeTiers: [
+    {
+      maxDirectSponsors: { type: Number, required: true }, // Maximum sponsors in this tier
+      percentage: { type: Number, required: true }        // Percentage for this tier
+    }
+  ],
+  levelIncomePercentages: { type: [Number], required: true }   // Array for level income
 });
-const Admin = mongoose.model('Admin', adminSchema);
-module.exports = Admin;
+
+
+const TestimonialSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  title: { type: String, required: true }, // e.g., Happy User
+  message: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+
+
+module.exports = mongoose.model('Admin', adminSchema);;
+module.exports = mongoose.model("Testimonial", TestimonialSchema);
