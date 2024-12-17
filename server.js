@@ -15,7 +15,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/moneyDB', {
+mongoose.connect('mongodb+srv://blueskyfashion738:Aw-FvX_PftNGE5K@bluesky.r0jpf9c.mongodb.net/?retryWrites=true&w=majority&appName=Bluesky', {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })

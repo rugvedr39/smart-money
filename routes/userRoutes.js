@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const userController = require('../controllers/Usercontroller');
+const userController = require('../controllers/userController');
 
 // Routes for handling user CRUD operations
 router.get('/', userController.getUsers);
