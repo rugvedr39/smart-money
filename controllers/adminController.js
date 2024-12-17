@@ -1,7 +1,7 @@
 const Admin = require('../models/adminModel');
 const Transaction = require('../models/transactionModel');
 const User = require('../models/user');
-const Testimonial = require('../models/adminModel');
+const Testimonial = require('../models/TestimonialModal');
 const SocialLink = require('../models/SocialLinkModel');
 
 // Get admin settings

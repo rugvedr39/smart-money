@@ -27,15 +27,6 @@ const adminSchema = new mongoose.Schema({
   levelIncomePercentages: { type: [Number], required: true }   // Array for level income
 });
 
+const Admin = mongoose.model('Admin', adminSchema);;
 
-const TestimonialSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  title: { type: String, required: true }, // e.g., Happy User
-  message: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
-
-
-module.exports = mongoose.model('Admin', adminSchema);;
-module.exports = mongoose.model("Testimonial", TestimonialSchema);
+module.exports = Admin
