@@ -85,7 +85,7 @@ exports.approvePayment = async (req, res) => {
 
     const sponsorDirectReferrals = await User.countDocuments({ sponsorId: user.sponsorId });
     if (sponsorDirectReferrals === 3) {
-      const sponsorObjectId = mongoose.Types.ObjectId(user.sponsorId); // Convert to ObjectId
+      const sponsorObjectId = new mongoose.Types.ObjectId(user.sponsorId); // Convert to ObjectId
     
       const existingPoolUser = await AutoPool.findOne({ userId: sponsorObjectId });
       if (existingPoolUser) {
