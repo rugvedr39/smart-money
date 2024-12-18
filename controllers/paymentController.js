@@ -94,7 +94,7 @@ exports.approvePayment = async (req, res) => {
       }
     
       // Add user to auto pool
-      const newAutoPoolEntry = new AutoPool({ userId: user.sponsorObjectId, teamCount: 0 });
+      const newAutoPoolEntry = new AutoPool({ userId: sponsorObjectId, teamCount: 0 });
       await newAutoPoolEntry.save();
       await propagateTeamCount(sponsorObjectId);
     }
