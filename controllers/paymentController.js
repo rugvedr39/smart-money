@@ -85,18 +85,19 @@ exports.approvePayment = async (req, res) => {
 
     const sponsorDirectReferrals = await User.countDocuments({ sponsorId: user.sponsorId });
     if (sponsorDirectReferrals === 3) {
-      const existingPoolUser = await AutoPool.findOne({  userId:user.sponsorId  });
+      const sponsorObjectId = mongoose.Types.ObjectId(user.sponsorId); // Convert to ObjectId
+    
+      const existingPoolUser = await AutoPool.findOne({ userId: sponsorObjectId });
       if (existingPoolUser) {
         console.log("User already in Auto Pool");
         return;
       }
-  
+    
       // Add user to auto pool
-      const newAutoPoolEntry = new AutoPool({ userId:user.sponsorId , teamCount: 0 });
+      const newAutoPoolEntry = new AutoPool({ userId: sponsorObjectId, teamCount: 0 });
       await newAutoPoolEntry.save();
-      await propagateTeamCount(user.sponsorId);
-
-  }
+      await propagateTeamCount(sponsorObjectId);
+    }
 
 
     user.isApproved = true;
