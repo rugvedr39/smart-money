@@ -350,7 +350,7 @@ exports.getTeamHierarchy = async (req, res) => {
     const team = await TeamHierarchy.find({ sponsorId: objectId, level: levelNum })
       .skip(skip)
       .limit(limitNum)
-      .populate('userId', 'name email mobileNumber username') // Populate user details
+      .populate('userId', 'name email mobileNumber username isApproved') // Populate user details
       .exec();
 
     const totalCount = await TeamHierarchy.countDocuments({ sponsorId: objectId, level: levelNum });

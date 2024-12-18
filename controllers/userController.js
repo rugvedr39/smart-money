@@ -4,6 +4,7 @@ const Product = require('../models/product');
 const Payment = require('../models/paymentModel');
 const Admin = require('../models/adminModel');
 const TeamHierarchy = require('../models/teamHierarchyModel');
+const Autopool = require('../models/autopoolModal');
 const { default: mongoose } = require('mongoose');
 
 
@@ -277,10 +278,12 @@ exports.login = async (req, res) => {
         acc[cur._id] = cur.total;
         return acc;
       }, {});
-      const directSponsorCount = await TeamHierarchy.countDocuments({ sponsorId: userId });
+      const directSponsorCount = await TeamHierarchy.countDocuments({ sponsorId: userId,level: 1 });
+      const magicteamcount = await Autopool.findOne({ userId: userId }).teamCount;
       const teamSize = await TeamHierarchy.countDocuments({ sponsorId: userId });
       const directIncome = incomeMap['Direct Income'] || 0;
       const levelIncome = incomeMap['Level Income'] || 0;
+      const magicIncome = incomeMap['Magic Income'] || 0;
       const totalIncome = directIncome + levelIncome;
       const recentTransactions = await Transaction.find({ userId })
       .sort({ createdAt: -1 })
@@ -291,9 +294,11 @@ exports.login = async (req, res) => {
         walletBalance,
         totalIncome,
         directIncome,
+        magicteamcount,
         levelIncome,
         pendingWithdrawals,
         user,
+        magicIncome,
         directSponsors: directSponsorCount,
         teamSize,
         recentTransactions
@@ -366,7 +371,7 @@ exports.getTeamHierarchy = async (req, res) => {
     const team = await TeamHierarchy.find({ sponsorId: objectId, level: levelNum })
       .skip(skip)
       .limit(limitNum)
-      .populate('userId', 'name email mobileNumber wallet') // Populate user details
+      .populate('userId', 'name email mobileNumber wallet isApproved') // Populate user details
       .exec();
 
     const totalCount = await TeamHierarchy.countDocuments({ sponsorId: objectId, level: levelNum });

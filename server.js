@@ -19,6 +19,14 @@ mongoose.connect('mongodb+srv://blueskyfashion738:Aw-FvX_PftNGE5K@bluesky.r0jpf9
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
+
+
+// mongoose.connect('mongodb://localhost:27017/moneyDB', {
+//     useNewUrlParser: true,
+//     useUnifiedTopology: true,
+// })
+
+
 .then(() => console.log('Connected to MongoDB'))
 .catch((err) => console.log('Error connecting to MongoDB: ', err));
 
