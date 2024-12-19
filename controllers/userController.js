@@ -279,7 +279,7 @@ exports.login = async (req, res) => {
         return acc;
       }, {});
       const directSponsorCount = await TeamHierarchy.countDocuments({ sponsorId: userId,level: 1 });
-      const magicteamcount = undefined
+      let magicteamcount = undefined
       const magicteam = await Autopool.findOne({ userId: new mongoose.Types.ObjectId(userId) });
       if (magicteam) {
         magicteamcount = magicteam.teamCount;
