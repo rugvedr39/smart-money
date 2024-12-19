@@ -83,25 +83,29 @@ exports.approvePayment = async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    const sponsorDirectReferrals = await User.countDocuments({ sponsorId: user.sponsorId });
-    if (sponsorDirectReferrals === 3) {
-      const sponsorObjectId = new mongoose.Types.ObjectId(user._id); // Convert to ObjectId
-    
-      const existingPoolUser = await AutoPool.findOne({ userId: sponsorObjectId });
-      if (existingPoolUser) {
-        console.log("User already in Auto Pool");
-        return;
-      }
-    
-      // Add user to auto pool
-      const newAutoPoolEntry = new AutoPool({ userId: sponsorObjectId, teamCount: 0 });
-      await newAutoPoolEntry.save();
-      await propagateTeamCount(sponsorObjectId);
-    }
-
-
     user.isApproved = true;
     await user.save();
+    const sponsorDirectReferrals = await User.countDocuments({ sponsorId: user.sponsorId,isApproved:true });
+    console.log(sponsorDirectReferrals);
+    
+
+    if (sponsorDirectReferrals === 3 ||
+      sponsorDirectReferrals === 6 ||
+      sponsorDirectReferrals === 9 ||
+      sponsorDirectReferrals === 12 )
+      {
+      const autopool_user = await User.findOne({username: user.sponsorId })
+      const sponsorObjectId = new mongoose.Types.ObjectId(autopool_user); // Convert to ObjectId
+      const existingPoolUser = await AutoPool.findOne({ userId: sponsorObjectId });
+
+      if (existingPoolUser) {
+        await propagateTeamCount(sponsorObjectId);
+      }else{
+        const newAutoPoolEntry = new AutoPool({ userId: sponsorObjectId, teamCount: 0 });
+        await newAutoPoolEntry.save();
+        await propagateTeamCount(sponsorObjectId);
+      }
+    }
 
     const product = await Product.find();
     if (!product) {
@@ -375,9 +379,16 @@ async function propagateTeamCount(userId) {
     if (!user || !user.sponsorId) return; // Stop if no sponsorId
 
     const sponsorId = user.sponsorId;
+    const sponsorautopool = await User.findOne({username:sponsorId});
+
+    console.log(sponsorautopool);
+    const objectId = new mongoose.Types.ObjectId(sponsorautopool);
+    
 
     // Check if the sponsor is in the auto pool
-    const sponsorPoolEntry = await AutoPool.findOne({ userId: sponsorId });
+    const sponsorPoolEntry = await AutoPool.findOne({ userId: objectId });
+    console.log(sponsorPoolEntry);
+    
     if (!sponsorPoolEntry) return; // Stop if sponsor is not in auto pool
 
     // Increment sponsor's team count
@@ -397,14 +408,14 @@ async function propagateTeamCount(userId) {
 
     if (reward) {
       // Fetch sponsor details
-      const sponsor = await User.findById(sponsorId);
+      const sponsor = await User.findById(objectId);
 
       if (!sponsor) return;
 
       // Handle Magic Income transaction
       if (reward.magicIncome > 0) {
         const magicIncomeTransaction = new Transaction({
-          userId: sponsorId,
+          userId: objectId,
           type: 'Magic Income',
           amount: reward.magicIncome,
         });
@@ -417,7 +428,7 @@ async function propagateTeamCount(userId) {
       // Handle Magic Topup transaction
       if (reward.magicTopup > 0) {
         const magicTopupTransaction = new Transaction({
-          userId: sponsorId,
+          userId: objectId,
           type: 'Magic Topup',
           amount: reward.magicTopup,
         });
@@ -432,7 +443,7 @@ async function propagateTeamCount(userId) {
 
 
     // Recursively propagate to the sponsor's sponsor
-    await propagateTeamCount(sponsorId);
+    await propagateTeamCount(objectId);
 
   } catch (error) {
     console.error("Error propagating team count:", error);
