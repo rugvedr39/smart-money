@@ -279,7 +279,7 @@ exports.login = async (req, res) => {
         return acc;
       }, {});
       const directSponsorCount = await TeamHierarchy.countDocuments({ sponsorId: userId,level: 1 });
-      const magicteamcount = await Autopool.findOne({ userId: userId }).teamCount;
+      const magicteamcount = await Autopool.findOne({ userId: new mongoose.Types.ObjectId(userId) });
       const teamSize = await TeamHierarchy.countDocuments({ sponsorId: userId });
       const directIncome = incomeMap['Direct Income'] || 0;
       const levelIncome = incomeMap['Level Income'] || 0;
@@ -294,7 +294,7 @@ exports.login = async (req, res) => {
         walletBalance,
         totalIncome,
         directIncome,
-        magicteamcount,
+        magicteamcount:magicteamcount.teamCount,
         levelIncome,
         pendingWithdrawals,
         user,

@@ -1,4 +1,6 @@
 const Product = require('../models/product');
+const Admin = require('../models/adminModel');
+
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -15,7 +17,18 @@ exports.createProduct = async (req, res) => {
 exports.getAllProducts = async (req, res) => {
     try {
         const products = await Product.find();
-        res.status(200).json(products);
+        const adminSettings = await Admin.findOne();
+
+        // Add deliveryCharges and gst to each product
+        const updatedProducts = products.map(product => ({
+            ...product.toObject(), // Convert Mongoose document to plain object
+            deliveryCharges: adminSettings.deliveryCharges,
+            gst: adminSettings.gst
+        }));
+
+        console.log(updatedProducts);
+
+        res.status(200).json(updatedProducts);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
