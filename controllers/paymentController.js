@@ -128,7 +128,7 @@ exports.approvePayment = async (req, res) => {
     if (directSponsorId) {
       const directSponsor = await User.findOne({ username: directSponsorId });
       if (directSponsor) {
-        const sponsorsCount = await User.countDocuments({ sponsorId: directSponsorId });
+        const sponsorsCount = await User.countDocuments({ sponsorId: directSponsorId,isApproved:true });
 
         // Determine direct income percentage based on tiers
         let directIncomePercentage = 0;
