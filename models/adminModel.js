@@ -24,7 +24,14 @@ const adminSchema = new mongoose.Schema({
       percentage: { type: Number, required: true }        // Percentage for this tier
     }
   ],
-  levelIncomePercentages: { type: [Number], required: true }   // Array for level income
+  levelIncomePercentages: { type: [Number], required: true },   // Array for level income
+  teamRewards: [
+    {
+      teamCount: { type: Number, required: true }, // Number of team members
+      magicIncome: { type: Number, required: true }, // Magic Income reward
+      magicTopup: { type: Number, required: true }, // Magic Topup reward
+    },
+  ],
 });
 
 const Admin = mongoose.model('Admin', adminSchema);;

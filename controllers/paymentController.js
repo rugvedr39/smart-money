@@ -101,7 +101,7 @@ exports.approvePayment = async (req, res) => {
       if (existingPoolUser) {
         await propagateTeamCount(sponsorObjectId);
       }else{
-        const newAutoPoolEntry = new AutoPool({ userId: sponsorObjectId, teamCount: 0 });
+        const newAutoPoolEntry = new AutoPool({ userId: sponsorObjectId, teamCount: 1 });
         await newAutoPoolEntry.save();
         await propagateTeamCount(sponsorObjectId);
       }
@@ -374,37 +374,25 @@ exports.getTeamHierarchy = async (req, res) => {
 
 async function propagateTeamCount(userId) {
   try {
-    // Fetch the user's sponsorId from the User model
     const user = await User.findById(userId);
     if (!user || !user.sponsorId) return; // Stop if no sponsorId
-
     const sponsorId = user.sponsorId;
-    const sponsorautopool = await User.findOne({username:sponsorId});
-
-    console.log(sponsorautopool);
+    const sponsorautopool = await User.findOne({ username: sponsorId });
     const objectId = new mongoose.Types.ObjectId(sponsorautopool);
-    
 
     // Check if the sponsor is in the auto pool
     const sponsorPoolEntry = await AutoPool.findOne({ userId: objectId });
-    console.log(sponsorPoolEntry);
-    
     if (!sponsorPoolEntry) return; // Stop if sponsor is not in auto pool
 
     // Increment sponsor's team count
     sponsorPoolEntry.teamCount += 1;
     await sponsorPoolEntry.save();
-    console.log(`Sponsor ${sponsorId} team count incremented to ${sponsorPoolEntry.teamCount}`);
 
-    // Determine rewards based on team count
-    const rewards = {
-      3: { magicIncome: 2100, magicTopup: 2100 },
-      6: { magicIncome: 12600, magicTopup: 10800 },
-      9: { magicIncome: 97200, magicTopup: 83315 },
-      12: { magicIncome: 999780, magicTopup: 0 } // No Magic Topup on 12
-    };
-
-    const reward = rewards[sponsorPoolEntry.teamCount];
+    // Fetch rewards from the Admin collection
+    const adminSettings = await Admin.findOne(); // Assuming one admin settings document
+    const reward = adminSettings.teamRewards.find(
+      (r) => r.teamCount === sponsorPoolEntry.teamCount
+    );
 
     if (reward) {
       // Fetch sponsor details
@@ -441,10 +429,8 @@ async function propagateTeamCount(userId) {
       await sponsor.save();
     }
 
-
     // Recursively propagate to the sponsor's sponsor
     await propagateTeamCount(objectId);
-
   } catch (error) {
     console.error("Error propagating team count:", error);
   }

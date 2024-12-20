@@ -27,10 +27,13 @@ exports.createOrUpdateAdminSettings = async (req, res) => {
       adminCharges,
       productPrice,
       directIncomeTiers,
-      levelIncomePercentages
+      levelIncomePercentages,
+      teamRewards // Added teamRewards field
     } = req.body;
 
+    // Find existing admin settings
     let adminSettings = await Admin.findOne();
+
     if (adminSettings) {
       // Update existing settings
       adminSettings.gst = gst;
@@ -40,9 +43,14 @@ exports.createOrUpdateAdminSettings = async (req, res) => {
       adminSettings.productPrice = productPrice;
       adminSettings.directIncomeTiers = directIncomeTiers;
       adminSettings.levelIncomePercentages = levelIncomePercentages;
+      adminSettings.teamRewards = teamRewards; // Update teamRewards
 
       adminSettings = await adminSettings.save();
-      res.status(200).json({ message: 'Admin settings updated successfully', adminSettings });
+
+      return res.status(200).json({
+        message: 'Admin settings updated successfully',
+        adminSettings
+      });
     } else {
       // Create new settings
       adminSettings = new Admin({
@@ -52,14 +60,23 @@ exports.createOrUpdateAdminSettings = async (req, res) => {
         adminCharges,
         productPrice,
         directIncomeTiers,
-        levelIncomePercentages
+        levelIncomePercentages,
+        teamRewards // Add teamRewards for new settings
       });
 
       await adminSettings.save();
-      res.status(201).json({ message: 'Admin settings created successfully', adminSettings });
+
+      return res.status(201).json({
+        message: 'Admin settings created successfully',
+        adminSettings
+      });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create or update admin settings', error });
+    console.error('Error in createOrUpdateAdminSettings:', error);
+    return res.status(500).json({
+      message: 'Failed to create or update admin settings',
+      error: error.message
+    });
   }
 };
 
